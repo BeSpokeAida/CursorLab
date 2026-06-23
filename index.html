@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cursor — Simulatore didattico</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;1,400&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles/main.css" />
+    <script type="module" src="./js/app.js"></script>
+  </head>
+  <body>
+    <div class="app" id="app">
+
+      <div class="edu-banner" role="note">
+        <strong>Simulatore didattico AI Act</strong>&nbsp;— replica non commerciale dell'interfaccia Cursor per corsi di alfabetizzazione AI. Non connesso a servizi reali.
+      </div>
+
+      <header class="titlebar" data-region="titlebar" aria-label="Barra del titolo"></header>
+
+      <div class="workbench" data-region="workbench" data-layout="editor">
+        <nav class="activitybar" data-region="activitybar" aria-label="Barra attività"></nav>
+        <aside class="sidebar" data-region="sidebar" aria-label="Esplora file"></aside>
+        <main class="editor-area" data-region="editor" aria-label="Editor codice"></main>
+        <aside class="chat-panel" data-region="chat" aria-label="Chat AI"></aside>
+      </div>
+
+      <footer class="statusbar" data-region="statusbar" aria-label="Barra di stato"></footer>
+    </div>
+  </body>
+</html>

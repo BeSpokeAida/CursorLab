@@ -1,0 +1,112 @@
+/* Cursor Trainer — design tokens
+   Colori: VS Code Dark+ workbench + Cursor brand orange #f54e00
+   Proporzioni: Cursor 1.x su Windows (1440px screen) */
+
+:root {
+  /* Brand Cursor */
+  --cursor-orange: #f54e00;
+  --cursor-orange-dim: #d04200;
+  --cursor-orange-glow: rgba(245, 78, 0, 0.18);
+
+  /* Workbench base */
+  --wb-bg: #1e1e1e;
+  --wb-fg: #cccccc;
+  --wb-fg-muted: #969696;
+  --wb-fg-subtle: #6e6e6e;
+  --wb-border: #2d2d2d;
+  --wb-border-light: #3c3c3c;
+  --wb-hover: rgba(255, 255, 255, 0.05);
+  --wb-active: rgba(255, 255, 255, 0.09);
+  --wb-selection: rgba(0, 120, 212, 0.35);
+  --wb-focus-ring: #007fd4;
+
+  /* Title bar */
+  --titlebar-bg: #181818;
+  --titlebar-fg: #cccccc;
+
+  /* Activity bar */
+  --activitybar-bg: #181818;
+  --activitybar-fg: #858585;
+  --activitybar-active: #ffffff;
+
+  /* Sidebar */
+  --sidebar-bg: #181818;
+  --sidebar-fg: #cccccc;
+  --sidebar-input-bg: #2d2d2d;
+
+  /* Editor */
+  --editor-bg: #1e1e1e;
+  --editor-fg: #d4d4d4;
+  --editor-tab-active-bg: #1e1e1e;
+  --editor-tab-inactive-bg: #2d2d2d;
+  --editor-tab-border: #252525;
+  --editor-tab-active-border: #0078d4;
+  --editor-gutter: #858585;
+
+  /* Syntax — Dark+ */
+  --syn-keyword: #569cd6;
+  --syn-string: #ce9178;
+  --syn-comment: #6a9955;
+  --syn-function: #dcdcaa;
+  --syn-number: #b5cea8;
+  --syn-type: #4ec9b0;
+  --syn-variable: #9cdcfe;
+  --syn-operator: #d4d4d4;
+
+  /* Chat */
+  --chat-bg: #181818;
+  --chat-surface: #252526;
+  --chat-input-bg: #2d2d2d;
+  --chat-composer-border: #3c3c3c;
+
+  /* Status bar */
+  --statusbar-bg: #0078d4;
+  --statusbar-fg: #ffffff;
+  --statusbar-item-hover: rgba(255,255,255,0.12);
+
+  /* Agent timeline pills */
+  --pill-thinking: #f5d0c5;
+  --pill-reading: #c8f0d8;
+  --pill-editing: #c5d8f5;
+  --pill-grepping: #e0c5f5;
+  --pill-done: #f5e6c5;
+
+  /* Toggle (uses VS Code blue, not orange) */
+  --toggle-on: #0078d4;
+  --toggle-off: #3c3c3c;
+
+  /* Typography */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "Cascadia Code", "Consolas", monospace;
+  --font-size-ui: 13px;
+  --font-size-sm: 11px;
+  --font-size-code: 13px;
+  --line-height-code: 1.5;
+
+  /* Spacing scale */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+
+  /* Shape */
+  --radius-sm: 3px;
+  --radius-md: 5px;
+  --radius-lg: 7px;
+
+  /* Motion */
+  --transition: 140ms ease;
+
+  /* Layout dimensions (Cursor reali) */
+  --activitybar-width: 48px;
+  --sidebar-width: 240px;
+  --chat-width: 380px;
+  --titlebar-height: 35px;
+  --statusbar-height: 22px;
+  --tab-height: 35px;
+  --settings-sidebar-width: 220px;
+
+  color-scheme: dark;
+}
