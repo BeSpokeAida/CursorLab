@@ -1,6 +1,23 @@
 import { initialState } from "./state.js";
 import { renderAll } from "./render.js";
 import { mentionTypes } from "./icons.js";
+import {
+  addRuleToTree,
+  addSkillToTree,
+  addSubagentToTree,
+  addCommandToTree,
+  buildRuleContent,
+  buildSkillContent,
+  buildSubagentContent,
+  buildCommandContent,
+  countTokens,
+  normalizeRuleName,
+  normalizeSkillName,
+  normalizeCommandTrigger,
+  commandFileName,
+  pathToTabId,
+  pathToActiveFile,
+} from "./filetree.js";
 
 const state = structuredClone(initialState);
 
@@ -18,16 +35,36 @@ const regions = {
   editor: $("[data-region='editor']"),
   chat: $("[data-region='chat']"),
   statusbar: $("[data-region='statusbar']"),
+  createOverlay: $("[data-region='create-overlay']"),
 };
 
-function render() {
+function render(options = {}) {
+  const ta = regions.chat.querySelector("[data-action='composer-input']");
+  const caret = options.preserveComposerCaret && ta ? ta.selectionStart : null;
+
   renderAll(state, regions);
+
+  if (caret !== null) {
+    const next = regions.chat.querySelector("[data-action='composer-input']");
+    if (next) {
+      next.focus();
+      next.setSelectionRange(caret, caret);
+    }
+  }
 }
 
 function ensureTab(id, label, ext) {
   if (!state.tabs.find((t) => t.id === id)) {
-    state.tabs.push({ id, label, ext });
+    state.tabs.push({ id, label: label || id, ext });
   }
+}
+
+function openFileByPath(path, ext) {
+  const tabId = pathToTabId(path.startsWith("cursor-trainer") ? path : `.cursor/${path}`);
+  const activeFile = pathToActiveFile(path.startsWith(".cursor") || path.startsWith("cursor-trainer") ? path : `.cursor/${path}`);
+  ensureTab(tabId, tabId, ext);
+  state.activeTab = tabId;
+  state.activeFile = activeFile.startsWith(".cursor") ? activeFile : `.cursor/${activeFile}`;
 }
 
 function findById(arr, id) {
@@ -46,6 +83,8 @@ function findFolder(nodes, name) {
 }
 
 function dispatch(action, payload = {}) {
+  let preserveComposerCaret = false;
+
   switch (action) {
 
     /* ── Layout ── */
@@ -101,14 +140,24 @@ function dispatch(action, payload = {}) {
 
     /* ── Tabs / files ── */
     case "open-file": {
+      const path = payload.path || payload.name;
       const fname = payload.name;
+      const ext = fname.split(".").pop();
+
+      if (path && (path.includes(".cursor/") || path.includes("/skills/") || path.includes("/subagents/") || path.includes("/commands/") || fname.endsWith(".mdc") || fname.endsWith(".md"))) {
+        const tabId = pathToTabId(path);
+        const activeFile = pathToActiveFile(path);
+        ensureTab(tabId, tabId, ext);
+        state.activeTab = tabId;
+        state.activeFile = activeFile;
+        break;
+      }
+
       state.activeTab = fname;
-      const isRoot = ["package.json", "tsconfig.json"].includes(fname);
+      const isRoot = ["package.json", "tsconfig.json", "mcp.json"].includes(fname);
       const isTest = fname.includes(".test.");
-      const isMdc = fname.endsWith(".mdc");
-      state.activeFile = isRoot ? fname : isTest ? `tests/${fname}` : isMdc ? `.cursor/rules/${fname}` : `src/${fname}`;
+      state.activeFile = isRoot ? fname : isTest ? `tests/${fname}` : `src/${fname}`;
       if (!state.tabs.find((t) => t.id === fname)) {
-        const ext = fname.split(".").pop();
         state.tabs.push({ id: fname, label: fname, ext });
       }
       break;
@@ -116,10 +165,10 @@ function dispatch(action, payload = {}) {
 
     case "switch-tab":
       state.activeTab = payload.value;
-      if (payload.value === "settings") {
-        // no file path needed
-      } else if (payload.value.startsWith("mcp-")) {
-        // already handled in render
+      if (payload.value === "settings") break;
+      if (payload.value.startsWith("mcp-")) break;
+      if (payload.value.includes("/") || payload.value.endsWith(".mdc") || payload.value.endsWith(".md")) {
+        state.activeFile = `.cursor/${payload.value}`;
       } else {
         const isRoot = ["package.json", "tsconfig.json"].includes(payload.value);
         state.activeFile = isRoot ? payload.value : `src/${payload.value}`;
@@ -140,18 +189,32 @@ function dispatch(action, payload = {}) {
     /* ── Composer ── */
     case "set-composer-mode":
       state.composerMode = payload.value;
+      preserveComposerCaret = true;
       break;
 
-    case "cycle-model": {
-      const idx = state.models.findIndex((m) => m.id === state.selectedModel);
-      state.selectedModel = state.models[(idx + 1) % state.models.length].id;
-      state.settings.selectedModelDefault = state.selectedModel;
+    case "cycle-model":
+    case "toggle-model-picker":
+      state.modelPickerOpen = !state.modelPickerOpen;
+      if (state.modelPickerOpen) state.mentionsOpen = false;
+      preserveComposerCaret = true;
       break;
-    }
+
+    case "select-model":
+      state.selectedModel = payload.value;
+      state.settings.selectedModelDefault = payload.value;
+      state.modelPickerOpen = false;
+      preserveComposerCaret = true;
+      break;
+
+    case "close-model-picker":
+      state.modelPickerOpen = false;
+      preserveComposerCaret = true;
+      break;
 
     case "toggle-mentions":
       state.mentionsOpen = !state.mentionsOpen;
       state.mentionHighlight = 0;
+      preserveComposerCaret = true;
       break;
 
     case "insert-mention": {
@@ -161,16 +224,12 @@ function dispatch(action, payload = {}) {
         state.composerText = state.composerText ? `${state.composerText} ${insert}` : insert;
       }
       state.mentionsOpen = false;
-      break;
+      render({ preserveComposerCaret: true });
+      return;
     }
 
     case "composer-input":
-      state.composerText = payload.value;
-      if (payload.value.endsWith("@") && !state.mentionsOpen) {
-        state.mentionsOpen = true;
-        state.mentionHighlight = 0;
-      }
-      break;
+      return;
 
     case "new-chat":
       state.messages = [];
@@ -217,13 +276,138 @@ function dispatch(action, payload = {}) {
       break;
     }
 
-    case "delete-rule":
-      state.rules = state.rules.filter((r) => r.id !== payload.value);
+    case "delete-rule": {
+      const rule = findById(state.rules, payload.value);
+      if (rule) {
+        state.rules = state.rules.filter((r) => r.id !== payload.value);
+        delete state.fileContents[rule.name];
+        state.tabs = state.tabs.filter((t) => t.id !== rule.name);
+      }
+      break;
+    }
+
+    case "open-create-modal":
+      state.createModal = {
+        open: true,
+        type: payload.value,
+        draft: { name: "", desc: "", content: "" },
+      };
       break;
 
-    case "add-rule":
-      state.messages.push({ role: "assistant", text: 'Per aggiungere una Rule: crea un file `.mdc` in `.cursor/rules/`. Usa la struttura:\n```\n---\ndescription: Descrizione breve\nalwaysApply: false\n---\n# Titolo\n\nContenuto della regola...\n```' });
-      state.chatVisible = true;
+    case "close-create-modal":
+      state.createModal = { open: false, type: null, draft: { name: "", desc: "", content: "" } };
+      break;
+
+    case "create-draft-input":
+      state.createModal.draft[payload.key] = payload.value;
+      return;
+
+    case "submit-create": {
+      const { type, draft } = state.createModal;
+      const name = (draft.name || "").trim();
+      const desc = (draft.desc || "").trim();
+      const content = (draft.content || "").trim();
+      if (!name) return;
+
+      if (type === "rule") {
+        const fileName = normalizeRuleName(name);
+        if (!fileName) return;
+        const body = buildRuleContent(desc, content);
+        const id = `r${Date.now()}`;
+        state.rules.push({
+          id,
+          name: fileName,
+          apply: desc || "Custom rule",
+          tokens: countTokens(body),
+          enabled: true,
+          content: body,
+        });
+        addRuleToTree(state.fileTree, fileName);
+        state.fileContents[fileName] = body;
+        openFileByPath(`rules/${fileName}`, "mdc");
+      }
+
+      if (type === "skill") {
+        const skillName = normalizeSkillName(name);
+        if (!skillName) return;
+        const body = buildSkillContent(skillName, desc, content);
+        const id = `s${Date.now()}`;
+        state.skills.push({
+          id,
+          name: skillName,
+          desc: desc || "Custom skill",
+          enabled: true,
+          content: body,
+        });
+        addSkillToTree(state.fileTree, skillName);
+        const fileKey = `skills/${skillName}/SKILL.md`;
+        state.fileContents[fileKey] = body;
+        openFileByPath(fileKey, "md");
+      }
+
+      if (type === "subagent") {
+        const agentName = normalizeSkillName(name);
+        if (!agentName) return;
+        const body = buildSubagentContent(agentName, desc, content);
+        const id = `a${Date.now()}`;
+        state.subagents.push({
+          id,
+          name: agentName,
+          type: "custom",
+          prompt: content || desc,
+          desc: desc || "",
+          enabled: true,
+          content: body,
+        });
+        addSubagentToTree(state.fileTree, agentName);
+        const fileKey = `subagents/${agentName}.md`;
+        state.fileContents[fileKey] = body;
+        openFileByPath(fileKey, "md");
+      }
+
+      if (type === "command") {
+        const trigger = normalizeCommandTrigger(name);
+        if (!trigger || trigger === "/") return;
+        const fileName = commandFileName(trigger);
+        const body = buildCommandContent(trigger, desc, content);
+        const id = `c${Date.now()}`;
+        state.commands.push({
+          id,
+          trigger,
+          desc: desc || "Custom command",
+          enabled: true,
+          content: body,
+        });
+        addCommandToTree(state.fileTree, fileName);
+        const fileKey = `commands/${fileName}`;
+        state.fileContents[fileKey] = body;
+        openFileByPath(fileKey, "md");
+      }
+
+      state.createModal = { open: false, type: null, draft: { name: "", desc: "", content: "" } };
+      ensureTab("settings", "Cursor Settings", "settings");
+      state.activeTab = "settings";
+      state.settingsSection = "rules-skills-subagents";
+      break;
+    }
+
+    case "edit-skill": {
+      const s = findById(state.skills, payload.value);
+      if (!s) break;
+      const fileKey = `skills/${s.name}/SKILL.md`;
+      openFileByPath(fileKey, "md");
+      break;
+    }
+
+    case "edit-command": {
+      const c = findById(state.commands, payload.value);
+      if (!c) break;
+      openFileByPath(`commands/${c.trigger.slice(1)}.md`, "md");
+      break;
+    }
+
+    case "delete-command":
+      state.commands = state.commands.filter((c) => c.id !== payload.value);
       break;
 
     /* ── Skills ── */
@@ -240,22 +424,15 @@ function dispatch(action, payload = {}) {
       break;
     }
 
-    case "delete-subagent":
-      state.subagents = state.subagents.filter((a) => a.id !== payload.value);
-      break;
-
     case "edit-subagent": {
       const a = findById(state.subagents, payload.value);
-      if (a) {
-        state.messages.push({ role: "assistant", text: `Prompt subagent **${a.name}**:\n\n"${a.prompt}"` });
-        state.chatVisible = true;
-      }
+      if (!a) break;
+      openFileByPath(`subagents/${a.name}.md`, "md");
       break;
     }
 
-    case "add-subagent":
-      state.messages.push({ role: "assistant", text: 'I subagent vengono configurati come Task nel workflow di orchestrazione. Aggiungi un\'entry nella tabella Subagents del tuo AGENTS.md o crea un Custom Agent tramite il Task tool.' });
-      state.chatVisible = true;
+    case "delete-subagent":
+      state.subagents = state.subagents.filter((a) => a.id !== payload.value);
       break;
 
     /* ── Commands ── */
@@ -308,31 +485,49 @@ function dispatch(action, payload = {}) {
       return;
   }
 
-  render();
+  render({ preserveComposerCaret });
 }
 
 /* ── Event delegation ───────────────────────────────────── */
 
 document.addEventListener("click", (e) => {
+  if (e.target.closest("[data-action='submit-create']") && e.target.type === "submit") {
+    e.preventDefault();
+    dispatch("submit-create");
+    return;
+  }
+
   const el = e.target.closest("[data-action]");
   if (!el) {
+    let closed = false;
     if (state.mentionsOpen && !e.target.closest(".composer__input-wrap")) {
       state.mentionsOpen = false;
-      render();
+      closed = true;
     }
+    if (state.modelPickerOpen && !e.target.closest(".composer__model-wrap")) {
+      state.modelPickerOpen = false;
+      closed = true;
+    }
+    if (closed) render({ preserveComposerCaret: true });
     return;
   }
 
   const action = el.dataset.action;
   const value = el.dataset.value;
   const name = el.dataset.name;
+  const path = el.dataset.path;
   const key = el.dataset.key;
 
-  if (action === "composer-input") return;
+  if (action === "composer-input" || action === "create-draft-input") return;
 
   if (action === "close-tab") {
     e.stopPropagation();
     dispatch("close-tab", { value });
+    return;
+  }
+
+  if (action === "close-create-modal" && e.target === regions.createOverlay) {
+    dispatch("close-create-modal");
     return;
   }
 
@@ -347,10 +542,12 @@ document.addEventListener("click", (e) => {
     "toggle-setting": () => dispatch("toggle-setting", { key: key || value }),
     "set-view": () => dispatch("set-view", { value }),
     "toggle-folder": () => dispatch("toggle-folder", { name }),
-    "open-file": () => dispatch("open-file", { name }),
+    "open-file": () => dispatch("open-file", { name, path }),
     "switch-tab": () => dispatch("switch-tab", { value }),
     "set-composer-mode": () => dispatch("set-composer-mode", { value }),
-    "cycle-model": () => dispatch("cycle-model"),
+    "toggle-model-picker": () => dispatch("toggle-model-picker"),
+    "select-model": () => dispatch("select-model", { value }),
+    "close-model-picker": () => dispatch("close-model-picker"),
     "toggle-mentions": () => dispatch("toggle-mentions"),
     "insert-mention": () => dispatch("insert-mention", { value }),
     "select-conversation": () => dispatch("select-conversation", { value }),
@@ -360,14 +557,17 @@ document.addEventListener("click", (e) => {
     "toggle-rule": () => dispatch("toggle-rule", { value }),
     "edit-rule": () => dispatch("edit-rule", { value }),
     "delete-rule": () => dispatch("delete-rule", { value }),
-    "add-rule": () => dispatch("add-rule"),
+    "open-create-modal": () => dispatch("open-create-modal", { value }),
+    "close-create-modal": () => dispatch("close-create-modal"),
+    "submit-create": () => dispatch("submit-create"),
     "toggle-skill": () => dispatch("toggle-skill", { value }),
+    "edit-skill": () => dispatch("edit-skill", { value }),
     "toggle-subagent": () => dispatch("toggle-subagent", { value }),
     "edit-subagent": () => dispatch("edit-subagent", { value }),
     "delete-subagent": () => dispatch("delete-subagent", { value }),
-    "add-subagent": () => dispatch("add-subagent"),
     "toggle-command": () => dispatch("toggle-command", { value }),
-    "add-command": () => dispatch("add-command"),
+    "edit-command": () => dispatch("edit-command", { value }),
+    "delete-command": () => dispatch("delete-command", { value }),
     "toggle-mcp": () => dispatch("toggle-mcp", { value }),
     "edit-mcp": () => dispatch("edit-mcp", { value }),
     "refresh-mcp": () => dispatch("refresh-mcp", { value }),
@@ -378,18 +578,44 @@ document.addEventListener("click", (e) => {
   handlers[action]?.();
 });
 
+regions.createOverlay?.addEventListener("click", (e) => {
+  if (e.target === regions.createOverlay) dispatch("close-create-modal");
+});
+
 document.addEventListener("input", (e) => {
-  const el = e.target.closest("[data-action='composer-input']");
-  if (el) dispatch("composer-input", { value: el.value });
+  const composer = e.target.closest("[data-action='composer-input']");
+  if (composer) {
+    state.composerText = composer.value;
+    if (composer.value.endsWith("@") && !state.mentionsOpen) {
+      state.mentionsOpen = true;
+      state.mentionHighlight = 0;
+      render({ preserveComposerCaret: true });
+    }
+    return;
+  }
+
+  const draft = e.target.closest("[data-action='create-draft-input']");
+  if (draft) dispatch("create-draft-input", { key: draft.dataset.key, value: draft.value });
 
   const setting = e.target.closest("[data-action='set-setting']");
   if (setting) dispatch("set-setting", { key: setting.dataset.key, value: setting.value, type: setting.type });
 });
 
 document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && state.createModal?.open) {
+    dispatch("close-create-modal");
+    return;
+  }
+
+  if (e.key === "Escape" && state.modelPickerOpen) {
+    state.modelPickerOpen = false;
+    render({ preserveComposerCaret: true });
+    return;
+  }
+
   if (e.key === "Escape" && state.mentionsOpen) {
     state.mentionsOpen = false;
-    render();
+    render({ preserveComposerCaret: true });
     return;
   }
 
@@ -397,11 +623,11 @@ document.addEventListener("keydown", (e) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
       state.mentionHighlight = (state.mentionHighlight + 1) % mentionTypes.length;
-      render();
+      render({ preserveComposerCaret: true });
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       state.mentionHighlight = (state.mentionHighlight - 1 + mentionTypes.length) % mentionTypes.length;
-      render();
+      render({ preserveComposerCaret: true });
     } else if (e.key === "Enter") {
       e.preventDefault();
       dispatch("insert-mention", { value: mentionTypes[state.mentionHighlight].id });

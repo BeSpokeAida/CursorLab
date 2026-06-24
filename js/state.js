@@ -11,6 +11,13 @@ export const initialState = {
   composerText: "",
   mentionsOpen: false,
   mentionHighlight: 0,
+  modelPickerOpen: false,
+
+  createModal: {
+    open: false,
+    type: null,
+    draft: { name: "", desc: "", content: "" },
+  },
 
   models: [
     { id: "claude-sonnet", label: "claude-4-sonnet", provider: "Anthropic" },
@@ -142,6 +149,23 @@ export const initialState = {
           { name: "ui-design.mdc", type: "file", ext: "mdc", depth: 3 },
           { name: "python-style.mdc", type: "file", ext: "mdc", depth: 3 },
         ]},
+        { name: "skills", type: "folder", open: false, depth: 2, children: [
+          { name: "html-css-js-app", type: "folder", open: false, depth: 3, children: [
+            { name: "SKILL.md", type: "file", ext: "md", depth: 4 },
+          ]},
+          { name: "tdd-workflow", type: "folder", open: false, depth: 3, children: [
+            { name: "SKILL.md", type: "file", ext: "md", depth: 4 },
+          ]},
+        ]},
+        { name: "subagents", type: "folder", open: false, depth: 2, children: [
+          { name: "planner.md", type: "file", ext: "md", depth: 3 },
+          { name: "doc-updater.md", type: "file", ext: "md", depth: 3 },
+        ]},
+        { name: "commands", type: "folder", open: false, depth: 2, children: [
+          { name: "fix.md", type: "file", ext: "md", depth: 3 },
+          { name: "test.md", type: "file", ext: "md", depth: 3 },
+          { name: "explain.md", type: "file", ext: "md", depth: 3 },
+        ]},
         { name: "mcp.json", type: "file", ext: "json", depth: 2 },
       ]},
       { name: "src", type: "folder", open: true, depth: 1, children: [
@@ -222,6 +246,13 @@ Scrivi solo ciò che serve. Tocca solo ciò che deve cambiare.
 <span class="fn">## 2. Todo list obbligatoria</span>
 
 Prima di qualsiasi task con più di uno step, produci una todo list.`,
+    "skills/html-css-js-app/SKILL.md": `# html-css-js-app\n\nVanilla HTML/CSS/JS interfaces without frameworks.`,
+    "skills/tdd-workflow/SKILL.md": `# tdd-workflow\n\nRED → GREEN → REFACTOR cycle.`,
+    "subagents/planner.md": `# planner\n\nSpecialista di pianificazione. Solo lettura.`,
+    "subagents/doc-updater.md": `# doc-updater\n\nAggiorna README e documentazione.`,
+    "commands/fix.md": `---\ntrigger: /fix\n---\n\nFix the selected code error.`,
+    "commands/test.md": `---\ntrigger: /test\n---\n\nGenerate unit tests.`,
+    "commands/explain.md": `---\ntrigger: /explain\n---\n\nExplain in plain language.`,
   },
 
   messages: [

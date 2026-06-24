@@ -942,6 +942,48 @@ button { cursor: pointer; }
 .composer__send:hover { background: var(--cursor-orange-dim); }
 .composer__send svg { width: 13px; height: 13px; }
 
+.composer__select.is-open {
+  border-color: var(--wb-focus-ring);
+  background: var(--wb-active);
+}
+
+.composer__model-wrap {
+  position: relative;
+}
+
+.model-picker-popup {
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 0;
+  min-width: 220px;
+  background: var(--chat-surface);
+  border: 1px solid var(--wb-border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 20;
+  padding: 4px;
+}
+
+.model-picker__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  text-align: left;
+  color: var(--wb-fg);
+  transition: background var(--transition);
+}
+.model-picker__item:hover { background: var(--wb-hover); }
+.model-picker__item.is-active { background: var(--wb-selection); }
+.model-picker__label { font-weight: 500; }
+.model-picker__provider { font-size: 11px; color: var(--wb-fg-muted); flex-shrink: 0; }
+
 /* @ mentions popup */
 .mentions-popup {
   position: absolute;
@@ -1052,3 +1094,115 @@ button { cursor: pointer; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* ── Create modal overlay ─────────────────────────────────── */
+.create-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+  padding: var(--space-4);
+}
+.create-overlay.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.create-modal {
+  width: min(480px, 100%);
+  background: var(--chat-surface);
+  border: 1px solid var(--wb-border-light);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.create-modal__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--wb-border);
+}
+.create-modal__icon { display: flex; color: var(--cursor-orange); }
+.create-modal__icon svg { width: 18px; height: 18px; }
+.create-modal__title {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--wb-fg);
+}
+
+.create-modal__body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.create-field { display: flex; flex-direction: column; gap: 5px; }
+.create-field__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--wb-fg);
+}
+.create-field__hint {
+  font-size: 11px;
+  color: var(--wb-fg-muted);
+  margin-top: -3px;
+}
+.create-field__input,
+.create-field__textarea {
+  width: 100%;
+  padding: 7px 10px;
+  background: var(--sidebar-input-bg);
+  border: 1px solid var(--wb-border-light);
+  border-radius: var(--radius-sm);
+  color: var(--wb-fg);
+  font-size: 13px;
+  transition: border-color var(--transition);
+}
+.create-field__input:focus,
+.create-field__textarea:focus {
+  border-color: var(--wb-focus-ring);
+  outline: none;
+}
+.create-field__textarea {
+  resize: vertical;
+  min-height: 100px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.create-field__input::placeholder,
+.create-field__textarea::placeholder { color: var(--wb-fg-subtle); }
+
+.create-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 4px;
+}
+.create-modal__btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: background var(--transition), color var(--transition);
+}
+.create-modal__btn--ghost {
+  color: var(--wb-fg-muted);
+  background: transparent;
+}
+.create-modal__btn--ghost:hover { background: var(--wb-hover); color: var(--wb-fg); }
+.create-modal__btn--primary {
+  background: var(--cursor-orange);
+  color: #fff;
+  font-weight: 500;
+}
+.create-modal__btn--primary:hover { background: var(--cursor-orange-dim); }

@@ -1,4 +1,5 @@
 import { icons, mentionTypes } from "./icons.js";
+import { CREATE_MODAL_CONFIG, flattenTreeWithPath, pathToTabId } from "./filetree.js";
 
 /* ── helpers ───────────────────────────────────────────── */
 
@@ -15,19 +16,62 @@ function fileIcon(ext) {
   if (ext === "js") return icons.js;
   if (ext === "json") return icons.json;
   if (ext === "mdc") return icons.mdc;
+  if (ext === "md") return icons.mdc;
   return icons.files;
 }
 
 function flattenTree(nodes, result = []) {
-  for (const n of nodes) {
-    result.push(n);
-    if (n.type === "folder" && n.open && n.children) flattenTree(n.children, result);
-  }
-  return result;
+  return flattenTreeWithPath(nodes, "", result);
 }
 
 function countLines(html) {
   return html.replace(/<[^>]+>/g, "").split("\n").length;
+}
+
+function highlightMarkdown(raw) {
+  return raw.split("\n").map((l) => {
+    if (l.startsWith("## ")) return `<span class="fn">${esc(l)}</span>`;
+    if (l.startsWith("# ")) return `<span class="fn" style="font-size:1.05em">${esc(l)}</span>`;
+    if (l.startsWith("- ")) return `<span class="op">-</span> ${esc(l.slice(2))}`;
+    if (l.startsWith("---")) return `<span class="cmt">${esc(l)}</span>`;
+    if (/^(name|description|trigger|alwaysApply|type):/.test(l)) {
+      const idx = l.indexOf(":");
+      return `<span class="var">${esc(l.slice(0, idx))}</span>: ${esc(l.slice(idx + 1).trim())}`;
+    }
+    return esc(l);
+  }).join("\n");
+}
+
+function getTextContent(state, tabId) {
+  if (state.fileContents[tabId]) {
+    const v = state.fileContents[tabId];
+    return typeof v === "string" && v.includes("<span") ? v.replace(/<[^>]+>/g, "") : v;
+  }
+
+  const rule = state.rules.find((r) => r.name === tabId);
+  if (rule) return rule.content;
+
+  const skill = state.skills.find((s) => tabId === `skills/${s.name}/SKILL.md`);
+  if (skill) return skill.content || `# ${skill.name}\n\n${skill.desc}`;
+
+  const sub = state.subagents.find((a) => tabId === `subagents/${a.name}.md`);
+  if (sub) return sub.content || `---\nname: ${sub.name}\ntype: ${sub.type}\n---\n\n${sub.prompt}`;
+
+  const cmd = state.commands.find((c) => tabId === `commands/${c.trigger.slice(1)}.md`);
+  if (cmd) return cmd.content || `---\ntrigger: ${cmd.trigger}\n---\n\n${cmd.desc}`;
+
+  return null;
+}
+
+function renderMarkdownEditor(tabId, breadcrumbParts, text) {
+  const highlighted = highlightMarkdown(text || "");
+  const n = Math.max(1, (text || "").split("\n").length);
+  return `
+    <div class="editor-breadcrumb">${breadcrumbParts.map((b) => `<span>${esc(b)}</span>`).join("")}</div>
+    <div class="editor-body">
+      <div class="line-numbers" aria-hidden="true">${lineNums(n)}</div>
+      <div class="code-editor">${highlighted}</div>
+    </div>`;
 }
 
 function lineNums(n) {
@@ -130,14 +174,14 @@ export function renderSidebar(state) {
     const flat = flattenTree(tree);
     content = flat.map((node) => {
       const indent = node.depth * 12;
-      const isActive = node.type === "file" && node.name === state.activeTab;
+      const isActive = node.type === "file" && state.activeTab === pathToTabId(node.path);
       const chevron = node.type === "folder"
         ? `<span class="file-tree__chevron">${node.open ? icons.chevronDown : icons.chevronRight}</span>`
         : `<span class="file-tree__chevron-placeholder"></span>`;
       const icon = node.type === "folder" ? icons.files : fileIcon(node.ext);
       return `<div class="file-tree__item ${isActive ? "is-active" : ""}" style="padding-left:${8 + indent}px"
           data-action="${node.type === "folder" ? "toggle-folder" : "open-file"}"
-          data-name="${esc(node.name)}" data-type="${node.type}">
+          data-name="${esc(node.name)}" data-path="${esc(node.path)}" data-type="${node.type}">
           ${chevron}${icon}<span>${esc(node.name)}</span>
         </div>`;
     }).join("");
@@ -172,9 +216,10 @@ function renderEditorTabs(state) {
     const isSettings = t.id === "settings";
     const isMcp = t.id.startsWith("mcp-");
     const icon = isSettings ? icons.gear : isMcp ? icons.json : fileIcon(t.ext);
+    const label = t.label.includes("/") ? t.label.split("/").pop() : t.label;
     return `<div class="editor-tab ${t.id === state.activeTab ? "is-active" : ""}" data-action="switch-tab" data-value="${t.id}">
       <span class="editor-tab__icon">${icon}</span>
-      <span>${esc(t.label)}</span>
+      <span>${esc(label)}</span>
       <button type="button" class="editor-tab__close" data-action="close-tab" data-value="${t.id}" aria-label="Chiudi">${icons.close}</button>
     </div>`;
   }).join("");
@@ -202,24 +247,17 @@ export function renderEditor(state) {
       </div>`;
   }
 
-  if (state.activeTab.endsWith(".mdc") || state.activeTab === "orchestration.mdc" || state.activeTab === "ui-design.mdc" || state.activeTab === "python-style.mdc") {
-    const rule = state.rules.find((r) => r.name === state.activeTab);
-    const raw = rule?.content || "# Rule\n\n...";
-    const lines = raw.split("\n");
-    const highlighted = lines.map((l) => {
-      if (l.startsWith("## ")) return `<span class="fn">${esc(l)}</span>`;
-      if (l.startsWith("# ")) return `<span class="fn" style="font-size:1.1em">${esc(l)}</span>`;
-      if (l.startsWith("- ")) return `<span class="op">-</span> ${esc(l.slice(2))}`;
-      if (l.startsWith("---")) return `<span class="cmt">${esc(l)}</span>`;
-      return esc(l);
-    }).join("\n");
-    const n = lines.length;
-    return `${tabsRow}
-      <div class="editor-breadcrumb"><span>.cursor</span><span>rules</span><span>${esc(state.activeTab)}</span></div>
-      <div class="editor-body">
-        <div class="line-numbers" aria-hidden="true">${lineNums(n)}</div>
-        <div class="code-editor">${highlighted}</div>
-      </div>`;
+  if (state.activeTab.endsWith(".mdc") || state.rules.some((r) => r.name === state.activeTab)) {
+    const text = getTextContent(state, state.activeTab) || "# Rule\n\n...";
+    return `${tabsRow}${renderMarkdownEditor(state.activeTab, [".cursor", "rules", state.activeTab], text)}`;
+  }
+
+  if (state.activeTab.endsWith(".md") || state.activeTab.includes("/")) {
+    const text = getTextContent(state, state.activeTab);
+    if (text !== null) {
+      const parts = state.activeFile ? state.activeFile.split("/") : state.activeTab.split("/");
+      return `${tabsRow}${renderMarkdownEditor(state.activeTab, parts, text)}`;
+    }
   }
 
   const content = state.fileContents[state.activeTab] || `<span class="cmt">// File vuoto</span>`;
@@ -341,6 +379,7 @@ function renderRulesSkillsSubagents(state) {
         <span class="settings-card__meta">${esc(s.desc)}</span>
       </div>
       <div class="settings-card__actions">
+        <button type="button" class="icon-btn" data-action="edit-skill" data-value="${s.id}" title="Apri SKILL.md">${icons.pencil}</button>
         ${toggle(s.enabled, "toggle-skill", "", s.id)}
       </div>
     </div>`).join("");
@@ -356,7 +395,7 @@ function renderRulesSkillsSubagents(state) {
         <span class="settings-card__meta">${esc(a.prompt.slice(0, 80))}…</span>
       </div>
       <div class="settings-card__actions">
-        <button type="button" class="icon-btn" data-action="edit-subagent" data-value="${a.id}" title="Modifica prompt">${icons.pencil}</button>
+        <button type="button" class="icon-btn" data-action="edit-subagent" data-value="${a.id}" title="Apri file subagent">${icons.pencil}</button>
         <button type="button" class="icon-btn" data-action="delete-subagent" data-value="${a.id}" title="Elimina">${icons.trash}</button>
         ${toggle(a.enabled, "toggle-subagent", "", a.id)}
       </div>
@@ -370,8 +409,8 @@ function renderRulesSkillsSubagents(state) {
         <span class="settings-card__meta">${esc(c.desc)}</span>
       </span>
       <div class="settings-card__actions">
-        <button type="button" class="icon-btn" title="Modifica">${icons.pencil}</button>
-        <button type="button" class="icon-btn" title="Elimina">${icons.trash}</button>
+        <button type="button" class="icon-btn" data-action="edit-command" data-value="${c.id}" title="Apri file command">${icons.pencil}</button>
+        <button type="button" class="icon-btn" data-action="delete-command" data-value="${c.id}" title="Elimina">${icons.trash}</button>
         ${toggle(c.enabled, "toggle-command", "", c.id)}
       </div>
     </div>`).join("");
@@ -383,7 +422,7 @@ function renderRulesSkillsSubagents(state) {
           <div class="settings-subsection-title">Rules</div>
           <p class="settings-subsection-desc">Istruzioni persistenti per l'AI. Salvate in <code class="inline-code">.cursor/rules/</code> come file <code class="inline-code">.mdc</code>.</p>
         </div>
-        <button type="button" class="settings-add-btn" data-action="add-rule">${icons.plus} Add Rule</button>
+        <button type="button" class="settings-add-btn" data-action="open-create-modal" data-value="rule">${icons.plus} Add Rule</button>
       </div>
       ${rulesCards}
     </div>
@@ -394,6 +433,7 @@ function renderRulesSkillsSubagents(state) {
           <div class="settings-subsection-title">Skills</div>
           <p class="settings-subsection-desc">Capacità specializzate caricate su richiesta da <code class="inline-code">~/.cursor/skills/</code></p>
         </div>
+        <button type="button" class="settings-add-btn" data-action="open-create-modal" data-value="skill">${icons.plus} Add Skill</button>
       </div>
       ${skillItems}
     </div>
@@ -404,7 +444,7 @@ function renderRulesSkillsSubagents(state) {
           <div class="settings-subsection-title">Subagents</div>
           <p class="settings-subsection-desc">Agent specializzati delegati dal thread principale tramite <code class="inline-code">Task tool</code></p>
         </div>
-        <button type="button" class="settings-add-btn" data-action="add-subagent">${icons.plus} Add Subagent</button>
+        <button type="button" class="settings-add-btn" data-action="open-create-modal" data-value="subagent">${icons.plus} Add Subagent</button>
       </div>
       ${subagentItems}
     </div>
@@ -415,7 +455,7 @@ function renderRulesSkillsSubagents(state) {
           <div class="settings-subsection-title">Commands</div>
           <p class="settings-subsection-desc">Comandi slash nel composer (<code class="inline-code">/fix</code>, <code class="inline-code">/test</code>…)</p>
         </div>
-        <button type="button" class="settings-add-btn" data-action="add-command">${icons.plus} Add Command</button>
+        <button type="button" class="settings-add-btn" data-action="open-create-modal" data-value="command">${icons.plus} Add Command</button>
       </div>
       ${commandItems}
     </div>`;
@@ -574,6 +614,15 @@ export function renderChat(state) {
         </div>`).join("")}
     </div>` : "";
 
+  const modelPicker = state.modelPickerOpen ? `
+    <div class="model-picker-popup" role="listbox" aria-label="Seleziona modello">
+      ${state.models.map((m) => `
+        <button type="button" class="model-picker__item ${m.id === state.selectedModel ? "is-active" : ""}" data-action="select-model" data-value="${m.id}" role="option">
+          <span class="model-picker__label">${esc(m.label)}</span>
+          <span class="model-picker__provider">${esc(m.provider)}</span>
+        </button>`).join("")}
+    </div>` : "";
+
   return `${convList}
     <div class="chat-panel__header">
       <span class="chat-panel__title">${state.layout === "agent" ? "Agent" : "Chat"}</span>
@@ -586,9 +635,12 @@ export function renderChat(state) {
     <div class="chat-history">${messages}</div>
     <div class="composer">
       <div class="composer__toolbar">
-        <button type="button" class="composer__select" data-action="cycle-model" title="Cambia modello">
-          <span>${esc(model?.label || "model")}</span>${icons.chevronDown}
-        </button>
+        <div class="composer__model-wrap">
+          <button type="button" class="composer__select ${state.modelPickerOpen ? "is-open" : ""}" data-action="toggle-model-picker" title="Seleziona modello" aria-expanded="${state.modelPickerOpen}">
+            <span>${esc(model?.label || "model")}</span>${icons.chevronDown}
+          </button>
+          ${modelPicker}
+        </div>
         <div class="composer__mode-tabs" role="tablist">${modeTabs}</div>
       </div>
       <div class="composer__input-wrap">
@@ -625,6 +677,54 @@ export function renderStatusbar(state) {
     </div>`;
 }
 
+/* ── Create modal ───────────────────────────────────────── */
+
+const MODAL_ICONS = {
+  mdc: icons.mdc,
+  lightning: icons.lightning,
+  robot: icons.robot,
+  cmd: icons.cmd,
+};
+
+export function renderCreateModal(state) {
+  const modal = state.createModal;
+  if (!modal?.open || !modal.type) return "";
+
+  const cfg = CREATE_MODAL_CONFIG[modal.type];
+  if (!cfg) return "";
+
+  const fields = cfg.fields.map((f) => {
+    const val = esc(modal.draft[f.key] || "");
+    if (f.type === "textarea") {
+      return `<label class="create-field">
+        <span class="create-field__label">${esc(f.label)}</span>
+        <textarea class="create-field__textarea" data-action="create-draft-input" data-key="${f.key}" rows="${f.rows || 6}" placeholder="${esc(f.placeholder || "")}">${val}</textarea>
+      </label>`;
+    }
+    return `<label class="create-field">
+      <span class="create-field__label">${esc(f.label)}</span>
+      ${f.hint ? `<span class="create-field__hint">${esc(f.hint)}</span>` : ""}
+      <input class="create-field__input" type="text" data-action="create-draft-input" data-key="${f.key}" value="${val}" placeholder="${esc(f.placeholder || "")}" />
+    </label>`;
+  }).join("");
+
+  return `
+    <div class="create-modal" role="dialog" aria-modal="true" aria-labelledby="create-modal-title">
+      <div class="create-modal__header">
+        <span class="create-modal__icon">${MODAL_ICONS[cfg.icon] || icons.plus}</span>
+        <h2 class="create-modal__title" id="create-modal-title">${esc(cfg.title)}</h2>
+        <button type="button" class="icon-btn" data-action="close-create-modal" aria-label="Chiudi">${icons.close}</button>
+      </div>
+      <form class="create-modal__body" data-action="submit-create">
+        ${fields}
+        <div class="create-modal__footer">
+          <button type="button" class="create-modal__btn create-modal__btn--ghost" data-action="close-create-modal">Annulla</button>
+          <button type="submit" class="create-modal__btn create-modal__btn--primary">${esc(cfg.submit)}</button>
+        </div>
+      </form>
+    </div>`;
+}
+
 /* ── renderAll ──────────────────────────────────────────── */
 
 export function renderAll(state, regions) {
@@ -634,6 +734,13 @@ export function renderAll(state, regions) {
   regions.editor.innerHTML = renderEditor(state);
   regions.chat.innerHTML = renderChat(state);
   regions.statusbar.innerHTML = renderStatusbar(state);
+
+  if (regions.createOverlay) {
+    const open = state.createModal?.open;
+    regions.createOverlay.classList.toggle("is-open", open);
+    regions.createOverlay.setAttribute("aria-hidden", String(!open));
+    regions.createOverlay.innerHTML = open ? renderCreateModal(state) : "";
+  }
 
   regions.workbench.dataset.layout = state.layout;
   regions.workbench.classList.toggle("is-chat-hidden", !state.chatVisible);
