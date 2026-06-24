@@ -23,18 +23,101 @@ button { cursor: pointer; }
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
-  padding: 3px var(--space-3);
+  gap: var(--space-4);
+  padding: 10px var(--space-4);
+  min-height: 52px;
   background: rgba(245, 78, 0, 0.10);
   border-bottom: 1px solid rgba(245, 78, 0, 0.25);
   color: #e8a088;
   font-size: 11px;
   flex-shrink: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.edu-banner strong { color: var(--cursor-orange); }
+
+.edu-banner__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-shrink: 0;
+}
+
+.edu-banner__logo-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 3px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  flex-shrink: 0;
+}
+
+.edu-banner__logo {
+  width: 32px;
+  height: 32px;
+  object-fit: contain;
+  border-radius: 50%;
+}
+
+.edu-banner__titles {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  line-height: 1.2;
+}
+
+.edu-banner__product {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.edu-banner__by {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cursor-orange);
+  letter-spacing: 0.02em;
+}
+
+.edu-banner__divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 4px 0;
+  background: rgba(245, 78, 0, 0.35);
+  flex-shrink: 0;
+}
+
+.edu-banner__note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: #e8a088;
+  text-align: center;
+  max-width: 720px;
+}
+
+.edu-banner__note strong { color: var(--cursor-orange); }
+
+@media (max-width: 720px) {
+  .edu-banner {
+    flex-direction: column;
+    gap: var(--space-2);
+    padding: 10px var(--space-3);
+  }
+
+  .edu-banner__divider {
+    width: 100%;
+    height: 1px;
+    margin: 0;
+  }
+
+  .edu-banner__note {
+    font-size: 10px;
+  }
+}
 
 /* ── App shell ───────────────────────────────────────────── */
 .app { display: flex; flex-direction: column; height: 100vh; }
