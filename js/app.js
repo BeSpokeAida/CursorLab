@@ -20,6 +20,26 @@ import {
 } from "./filetree.js";
 
 const state = structuredClone(initialState);
+const DEMO_TOAST = "Simulatore didattico — questa funzione non è disponibile nella demo.";
+
+let toastTimer = null;
+
+function showDemoToast(label) {
+  const msg = label ? `${label} — non disponibile in questa demo` : DEMO_TOAST;
+  let toast = document.getElementById("toast-noop");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "toast-noop";
+    toast.className = "toast-noop";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = msg;
+  clearTimeout(toastTimer);
+  requestAnimationFrame(() => {
+    toast.classList.add("show");
+    toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+  });
+}
 
 function $(selector, root = document) {
   const el = root.querySelector(selector);
@@ -481,6 +501,11 @@ function dispatch(action, payload = {}) {
       state.chatVisible = true;
       break;
 
+    case "noop":
+    case "noop-label":
+      showDemoToast(payload.label);
+      return;
+
     default:
       return;
   }
@@ -499,6 +524,15 @@ document.addEventListener("click", (e) => {
 
   const el = e.target.closest("[data-action]");
   if (!el) {
+    const deadBtn = e.target.closest(
+      "button:not([data-action]), .titlebar__menu-item, .agent-conversations__search, .settings-manage-btn"
+    );
+    if (deadBtn) {
+      e.preventDefault();
+      showDemoToast(deadBtn.getAttribute("title") || deadBtn.textContent?.trim());
+      return;
+    }
+
     let closed = false;
     if (state.mentionsOpen && !e.target.closest(".composer__input-wrap")) {
       state.mentionsOpen = false;
@@ -518,7 +552,7 @@ document.addEventListener("click", (e) => {
   const path = el.dataset.path;
   const key = el.dataset.key;
 
-  if (action === "composer-input" || action === "create-draft-input") return;
+  if (action === "composer-input" || action === "create-draft-input" || action === "set-setting") return;
 
   if (action === "close-tab") {
     e.stopPropagation();
@@ -573,9 +607,16 @@ document.addEventListener("click", (e) => {
     "refresh-mcp": () => dispatch("refresh-mcp", { value }),
     "delete-mcp": () => dispatch("delete-mcp", { value }),
     "add-mcp": () => dispatch("add-mcp"),
+    "noop": () => showDemoToast(el.dataset.label || el.getAttribute("title")),
+    "noop-label": () => showDemoToast(el.dataset.label || el.getAttribute("title")),
   };
 
-  handlers[action]?.();
+  if (handlers[action]) {
+    handlers[action]();
+    return;
+  }
+
+  showDemoToast(el.dataset.label || el.getAttribute("title"));
 });
 
 regions.createOverlay?.addEventListener("click", (e) => {

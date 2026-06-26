@@ -1289,3 +1289,26 @@ button { cursor: pointer; }
   font-weight: 500;
 }
 .create-modal__btn--primary:hover { background: var(--cursor-orange-dim); }
+
+/* Demo toast — funzioni non implementate */
+.toast-noop {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: var(--wb-surface);
+  border: 1px solid var(--wb-border);
+  border-radius: 6px;
+  padding: 10px 20px;
+  font-size: 13px;
+  color: var(--wb-fg-muted);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+  z-index: 9000;
+  opacity: 0;
+  transition: opacity 200ms, transform 200ms;
+  pointer-events: none;
+  max-width: min(90vw, 480px);
+  text-align: center;
+  line-height: 1.4;
+}
+.toast-noop.show { opacity: 1; transform: translateX(-50%) translateY(0); }
